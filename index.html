@@ -26,6 +26,100 @@
   touch-action: manipulation;
 }
 
+/* Contenedor principal de la fila */
+.suggestion-item-burst-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid #e1e5e9;
+    background-color: #ffffff;
+    transition: background-color 0.2s ease;
+}
+
+.suggestion-item-burst-row:hover {
+    background-color: #f4f7fa;
+}
+
+/* Información del producto */
+.burst-item-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    margin-right: 12px;
+    text-align: left;
+}
+
+.burst-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.burst-item-meta {
+    font-size: 11px;
+    color: #7f8c8d;
+    margin-top: 2px;
+}
+
+/* Controles */
+.burst-item-controls {
+    display: flex;
+    align-items: center;
+    background-color: #f1f3f5;
+    border-radius: 8px;
+    padding: 2px;
+    gap: 4px;
+}
+
+/* Botones */
+.burst-action-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+/* Botón menos */
+.burst-minus {
+    background-color: #f8d7da;
+    color: #b52a3a;
+}
+
+.burst-minus:hover {
+    background-color: #f5c2c7;
+}
+
+/* Botón más */
+.burst-plus {
+    background-color: #d1e7dd;
+    color: #13653f;
+}
+
+.burst-plus:hover {
+    background-color: #badbcc;
+}
+
+/* Cantidad */
+.burst-item-qty {
+    font-size: 13px;
+    font-weight: bold;
+    color: #2c3e50;
+    min-width: 24px;
+    text-align: center;
+    display: inline-block;
+}
+
 /* Transición suave para el padding del body */
 body.custom-keypad-active {
   /* El valor del padding se aplicará con JS */
@@ -3629,19 +3723,13 @@ function handleInput() {
 
     calculateTotal();
 
-    // Separar solo por + o -
     const parts =
-        calcInput.value.split(/[+\-]/);
+        calcInput.value.split(/[+-]/);
 
-    let last =
+    let searchTerm =
         parts[parts.length - 1];
 
-    // Ignorar multiplicador
-    let searchTerm = last;
-
-    if (
-        searchTerm.includes('*')
-    ) {
+    if (searchTerm.includes('*')) {
 
         searchTerm =
             searchTerm.split('*')[0];
@@ -3651,22 +3739,19 @@ function handleInput() {
     if (searchTerm.length >= 1) {
 
         currentMatches =
+            CATALOGO.filter(p =>
 
-            CATALOGO.filter(
-                p =>
+                p.plu.startsWith(searchTerm) ||
 
-                    p.plu.startsWith(searchTerm) ||
+                p.nombre
+                    .toLowerCase()
+                    .includes(searchTerm.toLowerCase()) ||
 
-                    p.nombre
-                        .toLowerCase()
-                        .includes(
-                            searchTerm.toLowerCase()
-                        ) ||
+                (
+                    searchTerm.length >= 3 &&
+                    p.precio.toString() === searchTerm
+                )
 
-                    (
-                        searchTerm.length >= 3 &&
-                        p.precio.toString() === searchTerm
-                    )
             );
 
         renderSuggestions();
@@ -3674,26 +3759,22 @@ function handleInput() {
         if (currentMatches.length > 0) {
 
             historialRapidoPanel
-                .classList
-                .remove('visible');
+                .classList.remove('visible');
 
         } else {
 
             historialRapidoPanel
-                .classList
-                .add('visible');
+                .classList.add('visible');
 
         }
 
     } else {
 
         suggestionsPanel
-            .classList
-            .remove('visible');
+            .classList.remove('visible');
 
         historialRapidoPanel
-            .classList
-            .add('visible');
+            .classList.add('visible');
 
         buildHistorialRapido();
 
@@ -3701,16 +3782,193 @@ function handleInput() {
 
 }
 
-    function renderSuggestions() {
-        if (!currentMatches.length) { suggestionsPanel.classList.remove('visible'); return; }
-        suggestionsPanel.innerHTML = currentMatches.map((p, idx) => `
-            <div class="suggestion-item ${idx === selectedIndex ? 'active-blue' : ''}" onclick="ModuloBolirranas.selectItem('${p.plu}')">
-                <span>${p.nombre} (PLU: ${p.plu})</span>
-                <span class="price-badge">${fmt(p.precio)}</span>
-            </div>
-        `).join('');
-        suggestionsPanel.classList.add('visible');
+function renderSuggestions() {
+
+    if (!currentMatches.length) {
+
+        suggestionsPanel.classList.remove('visible');
+
+        return;
+
     }
+
+    suggestionsPanel.innerHTML = currentMatches.map((p) => {
+
+        const itemEnTicket =
+            itemsTicket.find(
+                it => it.plu === p.plu
+            );
+
+        const cantidadActual =
+            itemEnTicket
+                ? itemEnTicket.cantidad
+                : 0;
+
+        return `
+            <div class="suggestion-item-burst-row" onclick="event.stopPropagation();">
+
+                <div class="burst-item-info">
+
+                    <span class="burst-item-name">
+                        ${p.nombre}
+                    </span>
+
+                    <span class="burst-item-meta">
+                        PLU: ${p.plu} |
+                        <strong>${fmt(p.precio)}</strong>
+                    </span>
+
+                </div>
+
+                <div class="burst-item-controls" onclick="event.stopPropagation();">
+
+                    <button
+                        class="burst-action-btn burst-minus"
+                        onclick="cambiarCantidadBurst('${p.plu}', -1, event)">
+                        -
+                    </button>
+
+                    <span
+                        class="burst-item-qty"
+                        id="burst-qty-${p.plu}">
+                        ${cantidadActual}
+                    </span>
+
+                    <button
+                        class="burst-action-btn burst-plus"
+                        onclick="cambiarCantidadBurst('${p.plu}', 1, event)">
+                        +
+                    </button>
+
+                </div>
+
+            </div>
+        `;
+
+    }).join('');
+
+    suggestionsPanel.classList.add('visible');
+
+}
+
+function cambiarCantidadBurst(
+    plu,
+    cambio,
+    event
+) {
+
+    if (event) {
+
+        event.stopPropagation();
+
+    }
+
+    const producto =
+        CATALOGO.find(
+            p => p.plu === plu
+        );
+
+    if (!producto) return;
+
+    let valorActual =
+        calcInput.value;
+
+    if (cambio === 1) {
+
+        if (
+            valorActual === "" ||
+            /[+*-]$/.test(valorActual)
+        ) {
+
+            calcInput.value += plu;
+
+        } else {
+
+            calcInput.value +=
+                "+" + plu;
+
+        }
+
+    } else if (cambio === -1) {
+
+        const regexPlu =
+            new RegExp(
+                "(\\+?\\b" + plu + "\\b)"
+            );
+
+        const matches =
+            [...valorActual.matchAll(regexPlu)];
+
+        if (matches.length > 0) {
+
+            const lastMatch =
+                matches[matches.length - 1];
+
+            const index =
+                lastMatch.index;
+
+            calcInput.value =
+                valorActual.slice(0, index) +
+                valorActual.slice(
+                    index +
+                    lastMatch[0].length
+                );
+
+            calcInput.value =
+                calcInput.value
+                    .replace(/\+\+/g, '+')
+                    .replace(/^[+]/, '')
+                    .replace(/[+]$/, '');
+
+        } else {
+
+            if (
+                valorActual === "" ||
+                /[+*-]$/.test(valorActual)
+            ) {
+
+                calcInput.value += plu;
+
+            } else {
+
+                calcInput.value +=
+                    "-" + plu;
+
+            }
+
+        }
+
+    }
+
+    calculateTotal();
+
+    parsearItems(calcInput.value);
+
+    const itemEnTicket =
+        itemsTicket.find(
+            it => it.plu === plu
+        );
+
+    const nuevaCantidad =
+        itemEnTicket
+            ? itemEnTicket.cantidad
+            : 0;
+
+    const qtySpan =
+        document.getElementById(
+            `burst-qty-${plu}`
+        );
+
+    if (qtySpan) {
+
+        qtySpan.textContent =
+            nuevaCantidad;
+
+    }
+
+}
+
+
 
     function guardarTransaccionRapida(items) {
         items.forEach(item => {
@@ -3981,9 +4239,34 @@ calcInput.addEventListener(
             calcInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    
+                    // Cierre explícito de sugerencias al presionar Enter
+                    if (suggestionsPanel) {
+                        suggestionsPanel.classList.remove('visible');
+                    }
+                    calcInput.blur();
+
                     if (selectedIndex >= 0 && currentMatches[selectedIndex]) this.selectItem(currentMatches[selectedIndex].plu);
                     else if (calcInput.value.trim() !== '') ModuloBolirranas.prepararVentaDirecta();
                     else this.toggleCalc();
+                } else if (e.key === 'Escape' || e.key === 'Esc') {
+                    // Cierre explícito de sugerencias al presionar Escape
+                    if (suggestionsPanel) {
+                        suggestionsPanel.classList.remove('visible');
+                    }
+                    calcInput.blur();
+                }
+            });
+
+            // Cierre por clic externo
+            document.addEventListener('click', (e) => {
+                if (!calcInput || !suggestionsPanel) return;
+                
+                const clickInsideInput = calcInput.contains(e.target);
+                const clickInsideSuggestions = suggestionsPanel.contains(e.target);
+
+                if (!clickInsideInput && !clickInsideSuggestions) {
+                    suggestionsPanel.classList.remove('visible');
                 }
             });
             calcResult.addEventListener('click', () => {
